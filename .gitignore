@@ -47,5 +47,8 @@ dev
 
 masks.json
 
+# llm conversation logs
+logs
+
 # mcp config
 app/mcp/mcp_config.json

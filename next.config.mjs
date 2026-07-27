@@ -32,6 +32,19 @@ const nextConfig = {
   },
   experimental: {
     forceSwcTransforms: true,
+    // keep the native/fs based logger out of the webpack bundle
+    serverComponentsExternalPackages: ["rotating-file-stream"],
+    serverActions: {
+      // behind a reverse proxy (GitHub Codespaces, nginx, ...) the browser sends
+      // the public Origin while the server only sees its local Host, which makes
+      // the built-in CSRF check reject every server action with a 500
+      allowedOrigins: [
+        "*.app.github.dev",
+        "*.gitpod.io",
+        "localhost:3000",
+        ...(process.env.SERVER_ACTION_ORIGINS?.split(",").filter(Boolean) ?? []),
+      ],
+    },
   },
 };
 

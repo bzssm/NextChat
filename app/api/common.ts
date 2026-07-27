@@ -3,6 +3,13 @@ import { getServerSideConfig } from "../config/server";
 import { OPENAI_BASE_URL, ServiceProvider } from "../constant";
 import { cloudflareAIGatewayUrl } from "../utils/cloudflare";
 import { getModelProvider, isModelNotavailableInServer } from "../utils/model";
+import {
+  isLLMLogEnabled,
+  logLLMRequest,
+  logLLMResponse,
+  newTraceId,
+  type LLMLogContext,
+} from "./llm-log";
 
 const serverConfig = getServerSideConfig();
 
@@ -108,13 +115,20 @@ export async function requestOpenai(req: NextRequest) {
     signal: controller.signal,
   };
 
-  // #1815 try to refuse gpt4 request
-  if (serverConfig.customModels && req.body) {
-    try {
-      const clonedBody = await req.text();
-      fetchOptions.body = clonedBody;
+  const logEnabled = isLLMLogEnabled();
+  let requestBodyText: string | null = null;
 
-      const jsonBody = JSON.parse(clonedBody) as { model?: string };
+  // the request body is a stream and can only be consumed once,
+  // so buffer it up front when either the model filter or the logger needs it
+  if ((serverConfig.customModels || logEnabled) && req.body) {
+    requestBodyText = await req.text();
+    fetchOptions.body = requestBodyText;
+  }
+
+  // #1815 try to refuse gpt4 request
+  if (serverConfig.customModels && requestBodyText) {
+    try {
+      const jsonBody = JSON.parse(requestBodyText) as { model?: string };
 
       // not undefined and is false
       if (
@@ -141,6 +155,15 @@ export async function requestOpenai(req: NextRequest) {
     } catch (e) {
       console.error("[OpenAI] gpt4 filter", e);
     }
+  }
+
+  const logCtx: LLMLogContext = {
+    traceId: logEnabled ? newTraceId() : "",
+    sessionId: req.headers.get("x-session-id"),
+  };
+  const startedAt = Date.now();
+  if (logEnabled) {
+    logLLMRequest(logCtx, fetchUrl, requestBodyText);
   }
 
   try {
@@ -175,7 +198,16 @@ export async function requestOpenai(req: NextRequest) {
     // The browser will try to decode the response with brotli and fail
     newHeaders.delete("content-encoding");
 
-    return new Response(res.body, {
+    // split the response stream so the logger can consume a copy
+    // without disturbing what is streamed back to the client
+    let clientBody = res.body;
+    if (logEnabled && res.body) {
+      const [forClient, forLog] = res.body.tee();
+      clientBody = forClient;
+      void logLLMResponse(logCtx, res.status, startedAt, forLog);
+    }
+
+    return new Response(clientBody, {
       status: res.status,
       statusText: res.statusText,
       headers: newHeaders,

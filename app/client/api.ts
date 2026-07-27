@@ -249,6 +249,8 @@ export function getHeaders(ignoreHeaders: boolean = false) {
     headers = {
       "Content-Type": "application/json",
       Accept: "application/json",
+      // lets the server side group requests that belong to the same conversation
+      "X-Session-Id": chatStore.currentSession().id,
     };
   }
 

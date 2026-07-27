@@ -63,7 +63,9 @@ async function handle(
 export const GET = handle;
 export const POST = handle;
 
-export const runtime = "edge";
+// "nodejs" instead of "edge" so that conversation logging (see ./llm-log)
+// can use the filesystem, which the edge runtime does not provide
+export const runtime = "nodejs";
 export const preferredRegion = [
   "arn1",
   "bom1",
