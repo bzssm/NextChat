@@ -253,12 +253,14 @@ DeepSeek Api Url.
 
 更改默认模型
 
-### `VISION_MODELS` (可选)
+### `NON_VISION_MODELS` (可选)
 
 > 默认值：空
-> 示例：`gpt-4-vision,claude-3-opus,my-custom-model` 表示为这些模型添加视觉能力，作为对默认模式匹配的补充（默认会检测包含"vision"、"claude-3"、"gemini-1.5"等关键词的模型）。
+> 示例：`gpt-3.5-turbo,my-text-only-model` 表示禁用这些模型的图片输入。
 
-在默认模式匹配之外，添加更多具有视觉能力的模型。多个模型用逗号分隔。
+默认允许所有模型输入图片。使用英文逗号分隔需要禁用图片输入的模型名，去除每项两端空白后，区分大小写精确匹配完整模型名，忽略空项。实际发送图片仍需要模型服务本身支持图片输入。
+
+此配置替代 `VISION_MODELS`；旧环境变量和内置视觉模型正则不再参与此判断。
 
 ### `DEFAULT_INPUT_TEMPLATE` （可选）
 

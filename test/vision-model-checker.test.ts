@@ -1,68 +1,79 @@
-import { jest } from "@jest/globals";
+import { useAccessStore } from "../app/store";
 import { isVisionModel } from "../app/utils";
 
 describe("isVisionModel", () => {
-  const originalEnv = process.env;
+  const originalNonVisionModels = useAccessStore.getState().nonVisionModels;
 
   beforeEach(() => {
-    jest.resetModules();
-    process.env = { ...originalEnv };
+    useAccessStore.setState({ nonVisionModels: "" });
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    useAccessStore.setState({ nonVisionModels: originalNonVisionModels });
   });
 
-  test("should identify vision models using regex patterns", () => {
-    const visionModels = [
-      "gpt-4-vision",
-      "claude-3-opus",
-      "gemini-1.5-pro",
-      "gemini-2.0",
-      "gemini-exp-vision",
-      "learnlm-vision",
-      "qwen-vl-max",
-      "qwen2-vl-max",
-      "gpt-4-turbo",
-      "dall-e-3",
-    ];
-
-    visionModels.forEach((model) => {
-      expect(isVisionModel(model)).toBe(true);
-    });
+  test.each([
+    "gpt-4o",
+    "gpt-3.5-turbo",
+    "gpt-4-turbo-preview",
+    "claude-2",
+    "claude-3-5-haiku-20241022",
+    "regular-model",
+    "",
+  ])("排除名单为空时默认允许模型 %s 输入图片", (model) => {
+    expect(isVisionModel(model)).toBe(true);
   });
 
-  test("should exclude specific models", () => {
-    expect(isVisionModel("claude-3-5-haiku-20241022")).toBe(false);
-  });
+  test.each(["gpt-4o", "gpt-3.5-turbo", "custom-model"])(
+    "模型 %s 在排除名单中时禁用图片输入",
+    (model) => {
+      useAccessStore.setState({
+        nonVisionModels: `another-model,${model}`,
+      });
 
-  test("should not identify non-vision models", () => {
-    const nonVisionModels = [
-      "gpt-3.5-turbo",
-      "gpt-4-turbo-preview",
-      "claude-2",
-      "regular-model",
-    ];
-
-    nonVisionModels.forEach((model) => {
       expect(isVisionModel(model)).toBe(false);
+      expect(isVisionModel("another-model")).toBe(false);
+      expect(isVisionModel("unlisted-model")).toBe(true);
+    },
+  );
+
+  test("忽略名单项两端的空白字符", () => {
+    useAccessStore.setState({
+      nonVisionModels: "  gpt-4o ,\n custom-model\t ",
     });
+
+    expect(isVisionModel("gpt-4o")).toBe(false);
+    expect(isVisionModel("custom-model")).toBe(false);
   });
 
-  test("should identify models from VISION_MODELS env var", () => {
-    process.env.VISION_MODELS = "custom-vision-model,another-vision-model";
+  test("只精确匹配完整模型名，并区分大小写", () => {
+    useAccessStore.setState({
+      nonVisionModels: "gpt-4o,custom-model-v2",
+    });
 
-    expect(isVisionModel("custom-vision-model")).toBe(true);
-    expect(isVisionModel("another-vision-model")).toBe(true);
-    expect(isVisionModel("unrelated-model")).toBe(false);
+    expect(isVisionModel("gpt-4o")).toBe(false);
+    expect(isVisionModel("gpt-4o-mini")).toBe(true);
+    expect(isVisionModel("custom-model")).toBe(true);
+    expect(isVisionModel("GPT-4o")).toBe(true);
   });
 
-  test("should handle empty or missing VISION_MODELS", () => {
-    process.env.VISION_MODELS = "";
-    expect(isVisionModel("unrelated-model")).toBe(false);
+  test("忽略重复逗号和空白名单项", () => {
+    useAccessStore.setState({
+      nonVisionModels: " ,gpt-4o,,gpt-4o, ,",
+    });
 
-    delete process.env.VISION_MODELS;
-    expect(isVisionModel("unrelated-model")).toBe(false);
-    expect(isVisionModel("gpt-4-vision")).toBe(true);
+    expect(isVisionModel("gpt-4o")).toBe(false);
+    expect(isVisionModel("unlisted-model")).toBe(true);
+    expect(isVisionModel("")).toBe(true);
+  });
+
+  test("每次判断均读取 Store 中最新的排除名单", () => {
+    expect(isVisionModel("gpt-4o")).toBe(true);
+
+    useAccessStore.setState({ nonVisionModels: "gpt-4o" });
+    expect(isVisionModel("gpt-4o")).toBe(false);
+
+    useAccessStore.setState({ nonVisionModels: "" });
+    expect(isVisionModel("gpt-4o")).toBe(true);
   });
 });

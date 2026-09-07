@@ -328,12 +328,14 @@ For ByteDance: use `modelName@bytedance=deploymentName` to customize model name 
 
 Change default model
 
-### `VISION_MODELS` (optional)
+### `NON_VISION_MODELS` (optional)
 
 > Default: Empty
-> Example: `gpt-4-vision,claude-3-opus,my-custom-model` means add vision capabilities to these models in addition to the default pattern matches (which detect models containing keywords like "vision", "claude-3", "gemini-1.5", etc).
+> Example: `gpt-3.5-turbo,my-text-only-model` disables image input for these models.
 
-Add additional models to have vision capabilities, beyond the default pattern matching. Multiple models should be separated by commas.
+Image input is enabled for all models by default. Use a comma-separated list to disable it for specific models. Model names are matched exactly and case-sensitively after trimming whitespace around each entry. Empty entries are ignored. The model service must still support image input for requests with images to succeed.
+
+This replaces `VISION_MODELS`; the old variable and built-in vision model patterns are no longer used for this check.
 
 ### `WHITE_WEBDAV_ENDPOINTS` (optional)
 

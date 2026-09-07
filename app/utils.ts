@@ -9,7 +9,6 @@ import {
 } from "./constant";
 // import { fetch as tauriFetch, ResponseType } from "@tauri-apps/api/http";
 import { fetch as tauriStreamFetch } from "./utils/stream";
-import { VISION_MODEL_REGEXES, EXCLUDE_VISION_MODEL_REGEXES } from "./constant";
 import { useAccessStore } from "./store";
 import { ModelSize } from "./typing";
 
@@ -281,15 +280,16 @@ export function getMessageImages(message: RequestMessage): string[] {
 }
 
 export function isVisionModel(model: string) {
-  const visionModels = useAccessStore.getState().visionModels;
-  const envVisionModels = visionModels?.split(",").map((m) => m.trim());
-  if (envVisionModels?.includes(model)) {
-    return true;
+  // 默认允许图片输入，仅禁用配置中明确列出的模型。
+  const nonVisionModels = useAccessStore.getState().nonVisionModels;
+  const envNonVisionModels = nonVisionModels
+    ?.split(",")
+    .map((m) => m.trim())
+    .filter(Boolean);
+  if (envNonVisionModels?.includes(model)) {
+    return false;
   }
-  return (
-    !EXCLUDE_VISION_MODEL_REGEXES.some((regex) => regex.test(model)) &&
-    VISION_MODEL_REGEXES.some((regex) => regex.test(model))
-  );
+  return true;
 }
 
 export function isDalle3(model: string) {
